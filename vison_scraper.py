@@ -9,22 +9,15 @@ load_dotenv()
 model = OpenAI()
 model.timeout = 30
 
-def images_b64():
-    images_b64 = []
-    for image_path in os.listdir("."):
-        if image_path.startswith("screenshot_") and image_path.endswith(".jpg"):
-            with open(image_path, "rb") as image_file:
-                images_b64.append(base64.b64encode(image_file.read()).decode())
-            os.remove(image_path)  # Clean up after encoding
-    return images_b64
+def image_b64(image):
+    with open(image, "rb") as f:
+        return base64.b64encode(f.read()).decode()
 
 def url2screenshot(url):
     print(f"Crawling {url}")
 
-    # Remove existing screenshots
-    for existing_image in os.listdir("."):
-        if existing_image.startswith("screenshot_") and existing_image.endswith(".jpg"):
-            os.remove(existing_image)
+    if os.path.exists("screenshot.jpg"):
+        os.remove("screenshot.jpg")
 
     result = subprocess.run(
         ["node", "screenshot.js", url],
@@ -32,12 +25,15 @@ def url2screenshot(url):
         text=True
     )
 
-    if result.returncode != 0:
-        print("ERROR in screenshot capture")
-        return []
+    exitcode = result.returncode
+    output = result.stdout
 
-    return images_b64()
-
+    if not os.path.exists("screenshot.jpg"):
+        print("ERROR")
+        return "Failed to scrape the website"
+    
+    b64_image = image_b64("screenshot.jpg")
+    return b64_image
 
 def visionExtract(b64_image, prompt):
     response = model.chat.completions.create(
@@ -74,6 +70,8 @@ def visionExtract(b64_image, prompt):
     else:
         print(f"GPT: {message_text}")
         return message_text
+    
+
 
 def visionCrawl(url, prompt):
     b64_image = url2screenshot(url)
